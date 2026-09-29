@@ -1,0 +1,220 @@
+# Changelog
+
+## [0.3.14] - 2026-08-12
+
+- Refine PortableText parser for Bento Grid and Card block types
+- Allow YouTube and Vimeo embed URLs in CSP frame-src headers
+- Remove bright white focus outlines around editor containers
+- Expand unit test coverage across KV content, SEO, and llms.txt utilities
+
+## [0.1.1] - 2026-03-14
+
+- Fix deployment by removing unnecessary static assets
+
+## [0.1.2] - 2026-03-14
+
+- Fix external link parsing in Editor.js
+
+## [0.1.3] - 2026-03-14
+
+- Enable automatic conflict resolution in sync workflow
+
+## [0.1.4] - 2026-03-14
+
+- Optimize upstream sync for standalone clones
+
+## [0.1.5] - 2026-03-14
+
+- Fix robots.txt absolute sitemap URL
+
+## [0.1.6] - 2026-03-14
+
+- Refine Twitter Card metadata logic
+
+## [0.1.7] - 2026-03-14
+
+- Improve branding badge contrast
+
+## [0.1.8] - 2026-03-14
+
+- Optimize head for Lighthouse performance
+
+## [0.1.9] - 2026-03-14
+
+- Simplify branding footer and remove obsolete styles
+
+## [0.1.10] - 2026-03-14
+
+- Fix default robots.txt generation
+
+## [0.1.11] - 2026-03-14
+
+- Fix EditorJS initialization for deferred scripts
+
+## [0.2.0] - 2026-03-16
+
+- Consolidate page description and SEO meta tags, improve documentation
+
+## [0.1.12] - 2026-03-16
+
+- Consolidate page description and SEO meta tags, improve documentation
+
+## [0.1.13] - 2026-03-17
+
+- fix: corrected link to EZ EDGE CMS in footer
+
+## [0.1.14] - 2026-03-18
+
+- Maintenance release
+
+## [0.1.15] - 2026-03-20
+
+- Implement hybrid script injection for HTMX compatibility and UI label updates
+
+## [0.1.16] - 2026-03-23
+
+- Rework mobile menu and implement Z-layer architecture
+
+## [0.1.17] - 2026-03-23
+
+- Fix mobile nav drawer duplication on desktop
+
+## [0.1.18] - 2026-03-24
+
+- Add admin dashboard update notification system
+
+## [0.1.19] - 2026-03-27
+
+- feat(editor): add Hero, Table, Embed, Code, and Delimiter blocks
+
+## [0.1.20] - 2026-03-27
+
+- fix(nav): ensure absolute paths for navigation links
+
+## [0.1.21] - 2026-03-29
+
+- feat(editor): implement undo/redo plugin for Editor.js
+
+## [0.1.22] - 2026-04-04
+
+- Optimize UnoCSS: split editor-specific styles to reduce public CSS weight
+
+## [0.1.23] - 2026-04-13
+
+- refactor(kv): introduce ConfigManager factory and unify atomic index management
+
+## [0.1.24] - 2026-04-14
+
+- refactor(admin): unify UI primitives, densify site settings, and standardize form validation
+
+## [0.1.25] - 2026-04-14
+
+- refactor(utils): optimize image storage logic and achieve 100% test coverage
+
+## [0.1.26] - 2026-04-18
+
+- fix(e2e): footer verify labels and refactor(utils): documentation and DRY
+
+## [0.1.27] - 2026-04-19
+
+- refactor: enforce explicit return types, consolidate path normalization, and add admin smoke tests
+
+## [0.1.28] - 2026-04-19
+
+- test: expand administrative test coverage
+
+## [0.1.29] - 2026-04-21
+
+- fix(ts): resolve typescript errors and onboarding e2e timeout, expand test coverage
+
+## [0.1.30] - 2026-04-22
+
+- fix(admin): resolve layout issues and unwanted change tracking on auth forms
+
+## [0.1.31] - 2026-04-28
+
+- feat(compliance): add support for security.txt, mta-sts, and AI metadata
+
+## [0.1.32] - 2026-04-28
+
+- feat(compliance): dynamic llms-full and automated compliance files
+
+## [0.1.33] - 2026-05-25
+
+- fix(admin): restore dynamic table client-side logic and unify row UI
+
+## [0.1.34] - 2026-05-25
+
+- feat(admin): enable editing page paths with automatic KV data migration
+
+## [0.1.35] - 2026-05-29
+
+- feat: implement archive pagination and optimize page list index schema
+
+## [0.1.36] - 2026-05-29
+
+- hotfix: allow GET requests on migrate-v2 endpoint
+
+## [0.2.0] - 2026-06-19
+
+- Migration to PortableText and backup UI fixes
+
+## [0.2.1] - 2026-06-20
+
+- Resolve CodeQL alerts for prototype pollution, incomplete sanitization, and workflow permissions
+
+## [0.3.0] - 2026-07-30
+
+- Ruri UI styling connector integration and WCAG 2.1 contrast compliance
+
+## [0.3.1] - 2026-07-31
+
+- Hotfix: site branding integration and safe Nav/Header SSR rendering
+
+## [0.3.2] - 2026-07-31
+
+- Hotfix: add React.createElement polyfill for external pre-compiled ruri-ui package
+
+## [0.3.3] - 2026-07-31
+
+- feat(image): add simple image display variant and cyberpunk editor styling
+
+## [0.3.4] - 2026-08-01
+
+- Maintenance release
+
+## [0.3.5] - 2026-08-01
+
+- Maintenance release
+
+## [0.3.6] - 2026-08-01
+
+- Maintenance release
+
+## [0.3.7] - 2026-08-01
+
+- hotfix: resolve editor race condition
+
+## [0.3.8] - 2026-08-01
+
+- hotfix: generate spec-compliant portabletext blocks for default pages
+
+## [0.3.9] - 2026-08-01
+
+- hotfix: graceful recovery for corrupted portable text data
+
+## [0.3.10] - 2026-08-01
+
+- feat: new link functionality in editor
+
+## [0.3.11] - 2026-08-01
+
+- fix: extend fallbacks
+
+## [0.3.12] - 2026-08-02
+
+- fix: import Fragment functionality
+
+## [0.3.13] - 2026-08-04
+
+- SEO fixes

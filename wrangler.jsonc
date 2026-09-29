@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zhangshifeng-com",
+  "main": "src/index.tsx",
+  "compatibility_date": "2025-03-07",
+  "compatibility_flags": [],
+  "kv_namespaces": [
+    {
+      "binding": "EZ_CONTENT","id": "7e5f171109564efa8dde0ed6e986cd8c",
+    },
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1,
+  },
+  "alias": {
+    "@oxc-parser/binding-wasm32-wasi": "./oxc-noop.js",
+  },
+}

@@ -1,0 +1,164 @@
+/**
+ * @module ImageStorage
+ * @description Utilities for processing and storing images in Cloudflare KV.
+ * Handles Base64 extraction, KV persistence, and garbage collection of orphaned images.
+ */
+
+/**
+ * Core internal helper to save a binary image from a Base64 string to KV.
+ *
+ * @param env - The Cloudflare Worker environment bindings.
+ * @param key - The unique KV key for the image.
+ * @param base64Data - The raw Base64 data string (with data:image/... prefix).
+ * @returns A promise resolving to the final content type of the image.
+ */
+async function putBinaryImage(
+  env: Env,
+  key: string,
+  base64Data: string,
+): Promise<string> {
+  const [meta, data] = base64Data.split(",");
+  const contentType = meta.split(":")[1].split(";")[0];
+
+  // Convert base64 to Uint8Array for KV storage
+  const binaryString = atob(data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  await env.EZ_CONTENT.put(key, bytes as any, {
+    metadata: { contentType },
+  });
+
+  return contentType;
+}
+
+/**
+ * Scans Editor.js JSON content, extracts Base64 images, saves them to KV,
+ * and replaces the Base64 strings with permanent relative URLs.
+ * Also performs garbage collection of orphaned images for the given slug.
+ *
+ * @param env - The Cloudflare Worker environment bindings.
+ * @param slug - The unique path identifier for the content.
+ * @param content - The Editor.js data object.
+ * @returns The updated Editor.js data object with KV URLs.
+ */
+export async function extractAndSaveImages(
+  env: Env,
+  slug: string,
+  content: any,
+): Promise<any> {
+  if (!content) return content;
+
+  const currentImageKeys: string[] = [];
+
+  /**
+   * Internal helper to process a single URL field and extract Base64 images to KV.
+   *
+   * @param url - The current URL string (either Base64 or existing relative path).
+   * @param id - A unique ID for the block/image.
+   * @param prefix - An optional prefix for the filename (e.g., 'hero').
+   * @returns The updated URL string.
+   */
+  const processUrl = async (
+    url: string | undefined,
+    id: string,
+    prefix: string = "",
+  ): Promise<string | undefined> => {
+    if (!url) return url;
+
+    // A. Handle Base64 Extraction
+    if (url.startsWith("data:image/")) {
+      const extension = url.split(";")[0].split("/")[1] || "webp";
+      const filename = `${prefix ? `${prefix}-` : ""}${id}.${extension}`;
+      const imageKey = `img:${slug}:${filename}`;
+
+      await putBinaryImage(env, imageKey, url);
+      currentImageKeys.push(imageKey);
+      return `/images/${slug}/${filename}`;
+    }
+
+    // B. Track Existing Images for GC
+    if (url.startsWith("/images/") || url.startsWith("images/")) {
+      const relPath = url.startsWith("/") ? url.substring(8) : url.substring(7);
+      const lastSlash = relPath.lastIndexOf("/");
+      if (lastSlash !== -1) {
+        const existingSlug = relPath.substring(0, lastSlash);
+        const existingFilename = relPath.substring(lastSlash + 1);
+        currentImageKeys.push(`img:${existingSlug}:${existingFilename}`);
+      }
+    }
+
+    return url;
+  };
+
+  // 1. Handle PortableText (Array of blocks)
+  if (Array.isArray(content)) {
+    for (const block of content) {
+      const blockId = block._key || Math.random().toString(36).substring(2, 12);
+
+      // Standard Image Blocks
+      if (block._type === "image" && block.url) {
+        block.url = await processUrl(block.url, blockId);
+      }
+
+      // Custom Hero Blocks
+      if (block._type === "hero" && block.imageUrl) {
+        block.imageUrl = await processUrl(block.imageUrl, blockId, "hero");
+      }
+    }
+  }
+
+  // Garbage Collection: Delete images in KV that are no longer in the content
+  try {
+    const list = await env.EZ_CONTENT.list({ prefix: `img:${slug}:` });
+    const deletePromises = list.keys
+      .filter((k) => !currentImageKeys.includes(k.name))
+      .map((k) => env.EZ_CONTENT.delete(k.name));
+
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
+    }
+  } catch (e) {
+    console.error("Image GC failed", e);
+  }
+
+  return content;
+}
+
+/**
+ * Saves a single image to KV for site-wide settings (e.g., OG Image).
+ *
+ * @param env - The Cloudflare Worker environment bindings.
+ * @param key - The unique sub-key for this image (e.g., 'og-image').
+ * @param base64Data - The raw Base64 data string (with data:image/... prefix).
+ * @returns The final relative URL of the saved image.
+ */
+export async function saveSiteImage(
+  env: Env,
+  key: string,
+  base64Data: string,
+): Promise<string> {
+  if (!base64Data || !base64Data.startsWith("data:image/")) {
+    return base64Data;
+  }
+
+  const filename = key.includes(".") ? key : `${key}.webp`;
+  const imageKey = `img:site:${filename}`;
+
+  // Garbage Collection: Delete any old versions of this specific site image (e.g. different extensions)
+  try {
+    const list = await env.EZ_CONTENT.list({ prefix: `img:site:${key}.` });
+    const deletePromises = list.keys.map((k) => env.EZ_CONTENT.delete(k.name));
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
+    }
+  } catch (e) {
+    console.error(`Failed to clean up old site image for ${key}`, e);
+  }
+
+  await putBinaryImage(env, imageKey, base64Data);
+
+  return `/images/site/${filename}`;
+}
