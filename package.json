@@ -1,0 +1,40 @@
+{
+  "name": "zhangshifeng-com",
+  "version": "0.3.14",
+  "description": "A KV-backed, no-code CMS for Cloudflare Workers.",
+  "author": "Evgenii Zinner",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "dev:test": "wrangler dev --local --persist-to ./temp-kv-state --port 8788",
+    "test:unit": "bun test tests/unit",
+    "test:e2e": "playwright test",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "docs": "typedoc",
+    "verify": "bunx tsc --noEmit && bun test && bun run test:e2e"
+  },
+  "dependencies": {
+    "@portabletext/to-html": "^5.0.2",
+    "ez-portable-text": "github:Evgenii-Zinner/ez-portable-text",
+    "hono": "^4.12.33",
+    "ruri-ui": "github:Evgenii-Zinner/ruri",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@iconify-json/carbon": "^1.2.25",
+    "@playwright/test": "^1.62.1",
+    "@unocss/core": "^66.7.5",
+    "@unocss/preset-attributify": "^66.7.5",
+    "@unocss/preset-icons": "^66.7.5",
+    "@unocss/preset-uno": "^66.7.5",
+    "@unocss/preset-web-fonts": "^66.7.5",
+    "@unocss/preset-wind4": "^66.7.5",
+    "bun-types": "^1.3.14",
+    "prettier": "3.8.1",
+    "typedoc": "^0.28.20",
+    "unocss": "^66.7.5",
+    "wrangler": "^4.118.0"
+  }
+}

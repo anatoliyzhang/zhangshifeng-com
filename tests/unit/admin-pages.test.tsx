@@ -1,0 +1,690 @@
+import { describe, it, expect, beforeEach } from "bun:test";
+import { Hono } from "hono";
+import pagesAdmin from "@routes/admin/pages";
+import { GlobalConfigVariables } from "@core/middleware";
+import { clearCache } from "@core/kv/config";
+import {
+  createDefaultTheme,
+  createDefaultSite,
+  createDefaultPage,
+} from "@core/factory";
+
+/**
+ * Tests for Administrative Page Management.
+ */
+describe("Admin Pages Routes", () => {
+  beforeEach(() => {
+    clearCache();
+  });
+  const setupApp = () => {
+    const app = new Hono<{ Bindings: Env; Variables: GlobalConfigVariables }>();
+    app.use("*", async (c, next) => {
+      const site = createDefaultSite();
+      c.set("theme", createDefaultTheme());
+      c.set("site", site);
+      c.set("seo", site.seo);
+      await next();
+    });
+    app.route("/admin/pages", pagesAdmin);
+    return app;
+  };
+
+  const mockEnv = (overrides: any = {}) => {
+    const store = new Map<string, any>();
+    if (overrides.initialData) {
+      for (const [k, v] of Object.entries(overrides.initialData)) {
+        store.set(k, v);
+      }
+    }
+
+    return {
+      EZ_CONTENT: {
+        get: async (key: string, _options?: any) => {
+          if (overrides.get) {
+            const res = await overrides.get(key);
+            if (res !== undefined) return res;
+          }
+          if (key.startsWith("list:pages")) return store.get(key) || [];
+          return store.get(key) || null;
+        },
+        put: async (key: string, val: any) => {
+          if (overrides.put) await overrides.put(key, val);
+          const finalVal = typeof val === "string" ? JSON.parse(val) : val;
+          store.set(key, finalVal);
+        },
+        delete: async (key: string) => {
+          if (overrides.delete) await overrides.delete(key);
+          store.delete(key);
+        },
+        list: async (options?: any) => {
+          if (overrides.list) return overrides.list(options);
+          return { keys: [], list_complete: true };
+        },
+      },
+    } as any;
+  };
+
+  describe("GET /admin/pages", () => {
+    it("should render the page list interface", async () => {
+      const app = setupApp();
+      const res = await app.request(
+        "http://localhost/admin/pages",
+        { method: "GET" },
+        mockEnv({
+          initialData: {
+            "list:pages:live": ["index", "nested/slug"],
+            "list:pages:draft": ["index", "draft-page"],
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Page Manager");
+      expect(html).toContain("index");
+      expect(html).toContain("draft-page");
+      expect(html).toContain("nested/");
+      expect(html).toContain("slug");
+    });
+  });
+
+  describe("GET /admin/pages/edit/:slug", () => {
+    it("should render the page editor", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test Page", "test");
+
+      const res = await app.request(
+        "http://localhost/admin/pages/edit/test",
+        { method: "GET" },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Edit Page: Test Page");
+      expect(html).toContain("portabletext-editor-wrapper");
+    });
+
+    it("should return 404 for non-existent page", async () => {
+      const app = setupApp();
+      const res = await app.request(
+        "http://localhost/admin/pages/edit/missing",
+        { method: "GET" },
+        mockEnv(),
+      );
+
+      expect(res.status).toBe(404);
+    });
+
+    it("should disable save button for protected pages", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Home", "index");
+      const res = await app.request(
+        "http://localhost/admin/pages/edit/index",
+        { method: "GET" },
+        mockEnv({
+          initialData: { "page:draft:index": page },
+        }),
+      );
+      expect(await res.text()).toContain("disabled");
+    });
+
+    it("should render formatted timestamps from page metadata", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test Page", "test");
+      const updatedAt = "2024-04-20T10:00:00.000Z";
+      const publishedAt = "2024-04-20T11:00:00.000Z";
+      page.metadata.updatedAt = updatedAt;
+      page.metadata.publishedAt = publishedAt;
+
+      const res = await app.request(
+        "http://localhost/admin/pages/edit/test",
+        { method: "GET" },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("SAVED:");
+      expect(html).toContain("PUBLISHED:");
+      // Simple verify: date constructor turns 2024-04-20 into localized string containing year
+      expect(html).toContain("2024");
+    });
+
+    it("should load Data Recovery Mode on unexpected errors", async () => {
+      const app = setupApp();
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const res = await app.request(
+        "http://localhost/admin/pages/edit/error",
+        { method: "GET" },
+        mockEnv({
+          get: async () => {
+            throw new Error("Database Failure");
+          },
+        }),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("Data Recovery Mode");
+
+      console.error = originalConsoleError;
+    });
+  });
+
+  describe("POST /admin/pages/create", () => {
+    it("should create new draft and redirect with correct path encoding", async () => {
+      const app = setupApp();
+      const formData = new FormData();
+      formData.append("title", "New Page");
+      formData.append("path", "articles");
+
+      let savedData: any = null;
+      const res = await app.request(
+        "http://localhost/admin/pages/create",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          get: async () => null,
+          put: async (key: string, val: any) => {
+            if (key === "page:draft:articles/new-page") {
+              savedData = typeof val === "string" ? JSON.parse(val) : val;
+            }
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("HX-Redirect")).toBe(
+        "/admin/pages/edit/articles/new-page",
+      );
+      expect(savedData.title).toBe("New Page");
+      expect(savedData.slug).toBe("articles/new-page");
+      expect(savedData.status).toBe("draft");
+    });
+
+    it("should fail if page already exists", async () => {
+      const app = setupApp();
+      const formData = new FormData();
+      formData.append("title", "Existing Page");
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const res = await app.request(
+        "http://localhost/admin/pages/create",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: { "page:draft:existing-page": { title: "Existing" } },
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain(
+        'Page "/existing-page" already exists.',
+      );
+      console.error = originalConsoleError;
+    });
+
+    it("should return error if title is missing", async () => {
+      const app = setupApp();
+      const formData = new FormData();
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const res = await app.request("http://localhost/admin/pages/create", {
+        method: "POST",
+        body: formData,
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.text()).toBe("Title is required");
+      console.error = originalConsoleError;
+    });
+  });
+
+  describe("POST /admin/pages/save/:slug", () => {
+    it("should handle missing page error", async () => {
+      const app = setupApp();
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const res = await app.request(
+        "http://localhost/admin/pages/save/non-existent",
+        { method: "POST" },
+        mockEnv(),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("SAVE FAILED: Page not found");
+      console.error = originalConsoleError;
+    });
+
+    it("should handle invalid JSON content and fall back to existing content", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test", "test");
+      const formData = new FormData();
+      formData.append("content", "invalid-json");
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const res = await app.request(
+        "http://localhost/admin/pages/save/test",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("PAGE SAVED");
+      console.error = originalConsoleError;
+    });
+
+    it("should update page content", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Old Title", "test");
+
+      const formData = new FormData();
+      formData.append("title", "Updated Title");
+      formData.append(
+        "content",
+        JSON.stringify([{ _type: "block", children: [{ text: "Hello" }] }]),
+      );
+
+      let savedData: any = null;
+      const res = await app.request(
+        "http://localhost/admin/pages/save/test",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+          put: async (key: string, val: any) => {
+            if (key === "page:draft:test")
+              savedData = typeof val === "string" ? JSON.parse(val) : val;
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("PAGE SAVED");
+      expect(savedData.title).toBe("Updated Title");
+    });
+
+    it("should extract usedBlocks from Editor.js blocks object format (lines 103-110)", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Old Title", "test");
+
+      const editorJsContent = {
+        blocks: [
+          { type: "paragraph", data: { text: "Hello" } },
+          { type: "header", data: { text: "Title", level: 2 } },
+        ],
+      };
+
+      const formData = new FormData();
+      formData.append("title", "Editor.js Page");
+      formData.append("content", JSON.stringify(editorJsContent));
+
+      let savedData: any = null;
+      const res = await app.request(
+        "http://localhost/admin/pages/save/test",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+          put: async (key: string, val: any) => {
+            if (key === "page:draft:test")
+              savedData = typeof val === "string" ? JSON.parse(val) : val;
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("PAGE SAVED");
+      expect(savedData.title).toBe("Editor.js Page");
+    });
+  });
+
+  describe("Lifecycle Mutations", () => {
+    it("POST /publish/:slug should publish draft to live", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Publish Me", "test");
+
+      let published = false;
+      const res = await app.request(
+        "http://localhost/admin/pages/publish/test",
+        {
+          method: "POST",
+        },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+          put: async (key: string) => {
+            if (key === "page:live:test") published = true;
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(published).toBe(true);
+    });
+
+    it("POST /publish/:slug should handle title update during publish", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Old Title", "test");
+      const formData = new FormData();
+      formData.append("title", "New Title");
+
+      let savedTitle = "";
+      const res = await app.request(
+        "http://localhost/admin/pages/publish/test",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: { "page:draft:test": page },
+          put: async (key: string, val: any) => {
+            if (key === "page:draft:test") {
+              const data = typeof val === "string" ? JSON.parse(val) : val;
+              savedTitle = data.title;
+            }
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(savedTitle).toBe("New Title");
+    });
+
+    it("should handle publication failure", async () => {
+      const app = setupApp();
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const res = await app.request(
+        "http://localhost/admin/pages/publish/missing",
+        { method: "POST" },
+        mockEnv(),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("PUBLISH FAILED: Publication failed");
+      console.error = originalConsoleError;
+    });
+
+    it("POST /unpublish/:slug should revert live page to draft", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Unpublish Me", "test");
+
+      let unpublished = false;
+      const res = await app.request(
+        "http://localhost/admin/pages/unpublish/test",
+        { method: "POST" },
+        mockEnv({
+          initialData: {
+            "page:live:test": page,
+            "list:pages:live": ["test"],
+            "list:pages:draft": [],
+          },
+          delete: async (key: string) => {
+            if (key === "page:live:test") unpublished = true;
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(unpublished).toBe(true);
+      expect(await res.text()).toContain("test"); // PageRow should render
+    });
+
+    it("POST /unpublish/:slug should handle failure", async () => {
+      const app = setupApp();
+      const res = await app.request(
+        "http://localhost/admin/pages/unpublish/missing",
+        { method: "POST" },
+        mockEnv(),
+      );
+
+      expect(res.status).toBe(500);
+      expect(await res.text()).toBe("Unpublish failed");
+    });
+
+    it("POST /delete/:slug should prevent deleting protected pages", async () => {
+      const app = setupApp();
+      const res = await app.request(
+        "http://localhost/admin/pages/delete/index",
+        { method: "POST" },
+        mockEnv(),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain("Cannot delete protected page");
+    });
+
+    it("POST /delete/:slug should remove page", async () => {
+      const app = setupApp();
+      let deleted = false;
+      const res = await app.request(
+        "http://localhost/admin/pages/delete/test",
+        {
+          method: "POST",
+        },
+        mockEnv({
+          initialData: {
+            "list:pages:live": ["test"],
+            "list:pages:draft": ["test"],
+            "page:draft:test": createDefaultPage("test", "test"),
+          },
+          delete: async (key: string) => {
+            if (key === "page:draft:test") deleted = true;
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(deleted).toBe(true);
+    });
+  });
+
+  describe("Save Rename, Publish Rename, PageRow & Migrations", () => {
+    it("POST /save/:slug - should successfully rename page if slug changes", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test Page", "old-slug");
+      const formData = new FormData();
+      formData.append("slug", "new-slug");
+      formData.append("title", "Test Page Renamed");
+
+      let renamed = false;
+      const res = await app.request(
+        "http://localhost/admin/pages/save/old-slug",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: {
+            "page:draft:old-slug": page,
+          },
+          put: async (key: string) => {
+            if (key === "page:draft:new-slug") renamed = true;
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("HX-Redirect")).toBe("/admin/pages/edit/new-slug");
+      expect(await res.text()).toContain("PAGE RENAMED");
+      expect(renamed).toBe(true);
+    });
+
+    it("POST /save/:slug - should fail to rename if target slug already exists", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test Page", "old-slug");
+      const formData = new FormData();
+      formData.append("slug", "existing-slug");
+
+      const res = await app.request(
+        "http://localhost/admin/pages/save/old-slug",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: {
+            "page:draft:old-slug": page,
+            "page:draft:existing-slug": createDefaultPage(
+              "Existing",
+              "existing-slug",
+            ),
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain(
+        'SAVE FAILED: Page path "/existing-slug" already exists.',
+      );
+    });
+
+    it("POST /publish/:slug - should successfully rename page on publish", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test Page", "old-slug");
+      const formData = new FormData();
+      formData.append("slug", "new-slug");
+      formData.append("title", "Test Page Renamed");
+
+      const res = await app.request(
+        "http://localhost/admin/pages/publish/old-slug",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: {
+            "page:draft:old-slug": page,
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("HX-Redirect")).toBe("/admin/pages/edit/new-slug");
+    });
+
+    it("POST /publish/:slug - should fail to rename on publish if target slug already exists", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Test Page", "old-slug");
+      const formData = new FormData();
+      formData.append("slug", "existing-slug");
+      formData.append("title", "Test Page Renamed");
+
+      const res = await app.request(
+        "http://localhost/admin/pages/publish/old-slug",
+        {
+          method: "POST",
+          body: formData,
+        },
+        mockEnv({
+          initialData: {
+            "page:draft:old-slug": page,
+            "page:draft:existing-slug": createDefaultPage(
+              "Existing",
+              "existing-slug",
+            ),
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain(
+        'PUBLISH FAILED: Page path "/existing-slug" already exists.',
+      );
+    });
+
+    it("POST /publish/:slug - should return PageRow HTML if target is row-*", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Publish Me", "test");
+
+      const res = await app.request(
+        "http://localhost/admin/pages/publish/test",
+        {
+          method: "POST",
+          headers: {
+            "HX-Target": "row-test",
+          },
+        },
+        mockEnv({
+          initialData: {
+            "page:draft:test": page,
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain('id="row-test"');
+      expect(html).toContain("Publish Me");
+    });
+
+    it("ALL /migrate-v2 - should re-save all pages and return success message", async () => {
+      const app = setupApp();
+      const page = createDefaultPage("Page Title", "test-slug");
+
+      const res = await app.request(
+        "http://localhost/admin/pages/migrate-v2",
+        {
+          method: "POST",
+        },
+        mockEnv({
+          initialData: {
+            "page:draft:test-slug": page,
+          },
+          list: async () => {
+            return {
+              keys: [{ name: "page:draft:test-slug" }],
+              list_complete: true,
+            };
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain(
+        "Migration complete! Re-saved 1 pages.",
+      );
+    });
+
+    it("ALL /migrate-v2 - should handle errors gracefully and return 500", async () => {
+      const app = setupApp();
+      const res = await app.request(
+        "http://localhost/admin/pages/migrate-v2",
+        {
+          method: "POST",
+        },
+        mockEnv({
+          list: async () => {
+            throw new Error("KV Failure");
+          },
+        }),
+      );
+
+      expect(res.status).toBe(500);
+      expect(await res.text()).toContain("Migration failed: KV Failure");
+    });
+  });
+});

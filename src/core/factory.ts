@@ -1,0 +1,210 @@
+import {
+  ThemeConfig,
+  PageConfig,
+  SiteConfig,
+  NavConfig,
+  FooterConfig,
+  VERSIONS,
+} from "@core/schema";
+import { DEFAULT_AUTHOR } from "@core/constants";
+import { getTermsTemplate, getPrivacyTemplate } from "@core/templates";
+
+/**
+ * Factory for creating default content for root-level text files.
+ * Generates standard compliance and crawler instruction files.
+ *
+ * @param baseUrl - The base URL of the site for sitemap inclusion.
+ * @param author - The author name for credit files.
+ * @param adminEmail - The administrative contact email.
+ * @returns A record containing default contents for standard text files.
+ */
+export const createDefaultTxtFiles = (
+  baseUrl: string = "",
+  author: string = "Admin",
+  adminEmail: string = "admin@example.com",
+): Record<string, string> => {
+  let hostname = "example.com";
+  try {
+    if (baseUrl && baseUrl.startsWith("http")) {
+      hostname = new URL(baseUrl).hostname;
+    }
+  } catch (e) {}
+
+  return {
+    robots: `User-agent: *\nAllow: /\nDisallow: /admin/`,
+
+    humans: `/* TEAM */\nDeveloper: ${author}\nSite: ${baseUrl}\n\n/* THANKS */\nPowered by: EZ EDGE CMS (https://ez-cms.ezinner.com)\n\n/* SITE */\nLast update: ${new Date().toLocaleDateString()}\nStandards: HTML5, CSS3, Cloudflare Workers`,
+    ads: "# Add your authorized digital sellers here\n# Example: google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0",
+    security: `Contact: mailto:${adminEmail}\nExpires: ${new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString()}\nPreferred-Languages: en\nCanonical: ${baseUrl}/.well-known/security.txt`,
+    mtaSts: `version: STSv1\nmode: testing\nmx: *.${hostname}\nmax_age: 604800`,
+  };
+};
+
+/**
+ * Factory for creating a default site configuration.
+ * This is typically used during the initial onboarding process to populate
+ * the site's identity, branding, and basic SEO metadata.
+ *
+ * @returns A validated SiteConfig object with default values.
+ */
+export const createDefaultSite = (): SiteConfig => {
+  const adminEmail = "admin@example.com";
+  const author = "Awesome Author";
+
+  return {
+    schemaVersion: VERSIONS.SITE,
+    title: "My Awesome Website",
+    tagline: "Your Awesome Tagline Goes Here",
+    author: author,
+    adminEmail: adminEmail,
+    language: "en",
+    copyright: "© {year} {author}. All rights reserved.",
+    logoSvg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="90" height="90" x="5" y="5" rx="10" fill="none" stroke="currentColor" stroke-width="4"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="serif" font-weight="bold" font-size="50" fill="currentColor">EZ</text></svg>',
+    showStatus: true,
+    txtFiles: createDefaultTxtFiles("", author, adminEmail),
+    seo: {
+      identity: {
+        type: "Organization",
+        name: "My Awesome Organization",
+        description: "A high-performance, edge-native website.",
+        links: [],
+      },
+    },
+  };
+};
+
+/**
+ * Factory for creating a default navigation configuration.
+ * Provides a minimal starting menu with a single link to the home page.
+ *
+ * @returns A validated NavConfig object.
+ */
+export const createDefaultNav = (): NavConfig => ({
+  schemaVersion: VERSIONS.NAV,
+  items: [{ label: "HOME", path: "/" }],
+});
+
+/**
+ * Factory for creating a default footer configuration.
+ * Includes standard utility links for legal compliance (Terms and Privacy).
+ *
+ * @returns A validated FooterConfig object.
+ */
+export const createDefaultFooter = (): FooterConfig => ({
+  schemaVersion: VERSIONS.FOOTER,
+  links: [
+    { label: "Terms", path: "/terms" },
+    { label: "Privacy", path: "/privacy" },
+  ],
+});
+
+/**
+ * Factory for creating a default theme configuration.
+ * Sets up the foundational HSL colors, typography, and UI effects for the design system.
+ *
+ * @param overrides - Optional partial configuration to override default theme values.
+ * @returns A validated ThemeConfig object.
+ */
+export const createDefaultTheme = (
+  overrides: Partial<ThemeConfig["values"]> = {},
+): ThemeConfig => {
+  return {
+    schemaVersion: VERSIONS.THEME,
+    updatedAt: new Date().toISOString(),
+    values: {
+      font_header: "Orbitron",
+      font_nav: "Chakra Petch",
+      font_body: "Roboto",
+      font_mono: "Fira Code",
+      styling_system: "ruri",
+      ...overrides,
+    },
+  };
+};
+
+/**
+ * Factory for creating a new, minimal page.
+ * Initializes a page with a title header and a welcome paragraph using the Editor.js structure.
+ *
+ * @param title - The display title for the new page.
+ * @param slug - The unique URL path for the page (e.g., "about-us").
+ * @returns A validated PageConfig object in 'draft' status.
+ */
+export const createDefaultPage = (title: string, slug: string): PageConfig => {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: VERSIONS.PAGE,
+    slug: slug,
+    status: "draft",
+    title: title,
+    description: "",
+    content: [
+      {
+        _type: "block",
+        style: "h1",
+        children: [{ _type: "span", text: title }],
+      },
+      {
+        _type: "block",
+        style: "normal",
+        children: [
+          {
+            _type: "span",
+            text: "Welcome to your new page. This is a minimal, block-based Editor where you can add text, images, and rich layouts.",
+          },
+        ],
+      },
+    ],
+    category: "General",
+    tags: ["signal", "future"],
+    seo: {
+      pageType: "WebPage",
+    },
+    appearance: {
+      layout: "post",
+    },
+    metadata: {
+      author: DEFAULT_AUTHOR,
+      createdAt: now,
+      updatedAt: now,
+      usedBlocks: ["block"],
+    },
+  };
+};
+
+/**
+ * Creates a pre-populated Terms of Service page using a standardized template.
+ *
+ * @param siteName - The name of the website/organization for inclusion in the text.
+ * @param authorName - The name of the legal entity or author.
+ * @returns A PageConfig object populated with the Terms of Service template.
+ */
+export const createTermsPage = (
+  siteName: string,
+  authorName: string,
+): PageConfig => {
+  const page = createDefaultPage("Terms of Service", "terms");
+  const now = new Date().toLocaleDateString();
+  page.content = getTermsTemplate(siteName, authorName, now);
+  page.metadata.usedBlocks = ["block"];
+  return page;
+};
+
+/**
+ * Creates a pre-populated Privacy Policy page using a standardized template.
+ *
+ * @param siteName - The name of the website/organization for inclusion in the text.
+ * @param authorName - The name of the legal entity or author.
+ * @returns A PageConfig object populated with the Privacy Policy template.
+ */
+export const createPrivacyPage = (
+  siteName: string,
+  authorName: string,
+): PageConfig => {
+  const page = createDefaultPage("Privacy Policy", "privacy");
+  const now = new Date().toLocaleDateString();
+  page.content = getPrivacyTemplate(siteName, authorName, now);
+  page.metadata.usedBlocks = ["block"];
+  return page;
+};
