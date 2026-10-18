@@ -14,6 +14,10 @@ This fork builds upon the upstream EZ EDGE CMS with the following additions:
 - **Localized Content**: Pages, site metadata, and navigation items all support per-language strings, stored compactly as either plain strings or multi-language records (`{ [locale]: string }`).
 - **Locale-Aware Routing**: URL paths are automatically prefixed with the current locale (e.g., `/zh/blog`), and the site respects locale switching via `Accept-Language` headers and manual selection.
 
+I'm using it in my personal website [![www.zhangshifeng.com](https://www.zhangshifeng.com)](https://www.zhangshifeng.com), which is fully multilingual and powered by this fork.
+
+== About the EZ EDGE CMS ==
+
 **🚀 Go from zero to a live, working website in under 2 minutes.**
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Evgenii-Zinner/ez-edge-cms)
