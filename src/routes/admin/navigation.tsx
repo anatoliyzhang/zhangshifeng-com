@@ -20,7 +20,7 @@ import {
 } from "@components/AdminUI";
 import { toastResponse } from "@utils/admin-responses";
 import { normalizePath } from "@utils/seo";
-import { SUPPORTED_LOCALES, getSiteDefaultLocale } from "@core/i18n";
+import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from "@core/i18n";
 import { LocalizedString } from "@utils/i18n-helpers";
 
 const navAdmin = new Hono<{
@@ -40,16 +40,17 @@ function renderLocaleInputs(
   baseName: string,
   index: number,
   labelValue: LocalizedString | undefined,
+  enabledLocales: readonly { code: string; name: string }[],
+  defaultLocale: string,
 ): string {
-  const defaults = [getSiteDefaultLocale(), "en"];
-  const cells = SUPPORTED_LOCALES.map((loc) => {
+  const cells = enabledLocales.map((loc) => {
     const val =
       typeof labelValue === "object" && labelValue !== null
         ? (labelValue as Record<string, string>)[loc.code] || ""
-        : loc.code === "en"
+        : loc.code === defaultLocale
           ? (labelValue as string) || ""
           : "";
-    const isDefault = loc.code === defaults[0];
+    const isDefault = loc.code === defaultLocale;
     return `
       <div class="ez-nav-locale ${isDefault ? "is-default" : ""}" data-locale="${loc.code}">
         <label class="ez-nav-locale-label">${loc.code}${isDefault ? " (default)" : ""}</label>
@@ -143,8 +144,12 @@ navAdmin.get("/", async (c): Promise<Response> => {
   const navLabels = nav.items.map((i) => i.label);
   const footerLabels = footer.links.map((i) => i.label);
 
+  const defaultLocale = site.language || DEFAULT_LOCALE;
+  const enabledCodes = new Set<string>([defaultLocale, ...(site.supportedLanguages || [])]);
+  const enabledLocales = SUPPORTED_LOCALES.filter((l) => enabledCodes.has(l.code));
+
   const emptyRowHtml = (labelBase: string, pathBase: string): string => {
-    const localeInputs = renderLocaleInputs(labelBase, 0, undefined);
+    const localeInputs = renderLocaleInputs(labelBase, 0, undefined, enabledLocales, defaultLocale);
     return `
       <td class="p-2 w-80px align-middle text-center">
         <div class="flex gap-1 justify-center">
@@ -183,7 +188,7 @@ navAdmin.get("/", async (c): Promise<Response> => {
           <AdminCard title="Navbar Links">
             <DynamicTable
               id="nav-items"
-              headers={["LABEL (multi-language)", "PATH"]}
+              headers={[`LABEL (${enabledLocales.map((l) => l.code).join(" / ")})`, "PATH"]}
               items={nav.items}
               addButtonLabel="+ ADD NAVBAR LINK"
               template={navTemplate}
@@ -191,7 +196,7 @@ navAdmin.get("/", async (c): Promise<Response> => {
                 <tr class="border-b border-b-solid border-[rgba(255,255,255,0.05)]">
                   <SortButtons />
                   <td class="p-2">
-                    {renderLocaleInputs("navLabel", index, navLabels[index])}
+                    {renderLocaleInputs("navLabel", index, navLabels[index], enabledLocales, defaultLocale)}
                   </td>
                   <td class="p-2">
                     <input
@@ -212,7 +217,7 @@ navAdmin.get("/", async (c): Promise<Response> => {
           <AdminCard title="Footer Links">
             <DynamicTable
               id="footer-items"
-              headers={["LABEL (multi-language)", "PATH"]}
+              headers={[`LABEL (${enabledLocales.map((l) => l.code).join(" / ")})`, "PATH"]}
               items={footer.links}
               addButtonLabel="+ ADD FOOTER LINK"
               template={footerTemplate}
@@ -220,7 +225,7 @@ navAdmin.get("/", async (c): Promise<Response> => {
                 <tr class="border-b border-b-solid border-[rgba(255,255,255,0.05)]">
                   <SortButtons />
                   <td class="p-2">
-                    {renderLocaleInputs("footerLabel", index, footerLabels[index])}
+                    {renderLocaleInputs("footerLabel", index, footerLabels[index], enabledLocales, defaultLocale)}
                   </td>
                   <td class="p-2">
                     <input
