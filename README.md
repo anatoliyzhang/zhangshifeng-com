@@ -1,8 +1,18 @@
-# ⚡ EZ EDGE CMS
+# ⚡ EZ EDGE CMS (Multilingual Fork)
+
+> 📌 This repository is a fork of [**ez-edge-cms**](https://github.com/Evgenii-Zinner/ez-edge-cms) by [Evgenii Zinner](https://ezinner.com), enhanced with **multilingual (i18n) support**.
 
 [![codecov](https://codecov.io/github/Evgenii-Zinner/ez-edge-cms/graph/badge.svg?token=UHCN0CJZ1W)](https://codecov.io/github/Evgenii-Zinner/ez-edge-cms)
 
 **EZ EDGE CMS** is a high-performance, edge-native Content Management System and Design System built for the Cloudflare global network. By leveraging Cloudflare Workers and KV storage, it provides sub-50ms response times with zero cold starts and eliminates the need for complex build pipelines or traditional server maintenance.
+
+### 🆕 Enhancements in This Fork
+
+This fork builds upon the upstream EZ EDGE CMS with the following additions:
+
+- **Multilingual Navigation & Footer**: Admin panel supports entering labels for navbar and footer links in all supported languages; the front-end automatically displays the correct label based on the visitor's locale.
+- **Localized Content**: Pages, site metadata, and navigation items all support per-language strings, stored compactly as either plain strings or multi-language records (`{ [locale]: string }`).
+- **Locale-Aware Routing**: URL paths are automatically prefixed with the current locale (e.g., `/zh/blog`), and the site respects locale switching via `Accept-Language` headers and manual selection.
 
 **🚀 Go from zero to a live, working website in under 2 minutes.**
 
@@ -85,8 +95,8 @@ For local development and manual deployment control:
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/Evgenii-Zinner/ez-edge-cms.git
-cd ez-edge-cms
+git clone https://github.com/anatoliyzhang/zhangshifeng-com.git
+cd zhangshifeng-com
 bun install
 ```
 
