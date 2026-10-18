@@ -597,3 +597,34 @@ select.admin-input option:checked,
   margin-left: 0.15rem;
   opacity: 0.5;
 }
+
+.ez-nav-locales {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.ez-nav-locale {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ez-nav-locale.is-default .ez-nav-locale-label {
+  color: var(--theme-accent, #00ffff);
+}
+
+.ez-nav-locale-label {
+  font-family: var(--font-nav, "Chakra Petch", sans-serif);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--theme-text-dim, #a0baba);
+}
+
+.ez-nav-locale-input {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.8rem;
+}

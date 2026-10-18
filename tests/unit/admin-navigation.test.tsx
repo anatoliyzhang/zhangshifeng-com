@@ -75,10 +75,10 @@ describe("Admin Navigation Routes", () => {
       expect(html).toContain("Navbar Links");
       expect(html).toContain("Footer Links");
 
-      // Check for default home link
-      expect(html).toContain("navLabel[]");
+      // Check for default home link with new multi-language field names
+      expect(html).toContain("navLabel[0][en]");
       expect(html).toContain("HOME");
-      expect(html).toContain("footerLabel[]");
+      expect(html).toContain("footerLabel[0][en]");
       expect(html).toContain("Terms");
     });
 
